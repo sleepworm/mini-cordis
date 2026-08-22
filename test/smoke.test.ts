@@ -3,6 +3,6 @@ import { VERSION } from '../src/index'
 
 describe('smoke', () => {
   it('project can run', () => {
-    expect(VERSION).toBe('0.6.0')
+    expect(VERSION).toBe('0.7.0')
   })
 })
