@@ -1,5 +1,6 @@
 import type { Plugin } from './plugin'
 import type { Listener } from './event'
+import { MissingDependencyError } from './dependency'
 
 type Cleanup = () => void
 type EffectSetup = () => Cleanup | void
@@ -85,6 +86,14 @@ export class Context {
     for (const listener of set) {
       listener(...args)
     }
+  }
+
+  require(names: string[], callback: (ctx: Context) => void): void {
+    const missing = names.filter((name) => !this.has(name))
+    if (missing.length) {
+      throw new MissingDependencyError(missing)
+    }
+    callback(this)
   }
 
   dispose(): void {
