@@ -37,3 +37,31 @@ describe('Service Registry', () => {
     expect(ctx.get('greeter')).toBe(second)
   })
 })
+
+describe('Service Removal', () => {
+  it('has() 在 provide 之后为 true，remove 之后为 false', () => {
+    const ctx = new Context()
+    const greeter = { greet: (name: string) => `Hello, ${name}!` }
+
+    expect(ctx.has('greeter')).toBe(false)
+    ctx.provide('greeter', greeter)
+    expect(ctx.has('greeter')).toBe(true)
+
+    ctx.remove('greeter')
+    expect(ctx.has('greeter')).toBe(false)
+  })
+
+  it('remove 之后 get 返回 undefined', () => {
+    const ctx = new Context()
+    ctx.provide('greeter', { greet: (name: string) => `Hello, ${name}!` })
+
+    ctx.remove('greeter')
+
+    expect(ctx.get('greeter')).toBeUndefined()
+  })
+
+  it('remove 一个从未 provide 过的 name 不报错', () => {
+    const ctx = new Context()
+    expect(() => ctx.remove('does-not-exist')).not.toThrow()
+  })
+})

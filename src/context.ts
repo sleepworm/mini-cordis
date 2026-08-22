@@ -8,4 +8,12 @@ export class Context {
   get(name: string): unknown {
     return this.services.get(name)
   }
+
+  has(name: string): boolean {
+    return this.services.has(name)
+  }
+
+  remove(name: string): void {
+    this.services.delete(name)
+  }
 }
