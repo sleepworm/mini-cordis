@@ -46,9 +46,34 @@ export class Context {
     }
   }
 
+  // 依次执行 scope 里的 cleanup（LIFO），单个 cleanup 抛错不会中断其余的：
+  // 抛错的那个被上报（reportError），循环继续处理剩下的。
+  // dispose() 和 runInScope() 返回的 dispose 函数都靠它——一个 scope 的 dispose
+  // 本身常常又是父 scope 里的一个 cleanup，如果它自己抛错，父 scope 剩下的
+  // 兄弟 cleanup 不应该被连累，所以这个方法保证：teardown() 本身永远不抛错。
+  private teardown(scope: Cleanup[]): void {
+    while (scope.length) {
+      const cleanup = scope.pop()!
+      try {
+        cleanup()
+      } catch (error) {
+        this.reportError(error)
+      }
+    }
+  }
+
+  private reportError(error: unknown): void {
+    this.emit('error', error)
+  }
+
   // 打开一个新 scope，跑 fn，跑完把 currentScope 指回去，返回可以撤销这个 scope 的 dispose()。
   // plugin() 和 inject() 的"激活"共用这一套机制——对 Context 来说，
   // "安装一个 Plugin"和"依赖满足后激活一段代码"没有本质区别，都是"开一个可撤销的 scope"。
+  //
+  // 如果 fn 本身抛错（安装/激活失败），已经注册的那部分 effect 会被立刻回滚
+  // （尽量执行 cleanup），错误上报给 'error' 事件，返回一个空操作的 dispose——
+  // 调用方（plugin()/activate()）不需要单独处理这种情况，还是能正常拿到一个
+  // dispose 函数，只是它什么都不用做。
   private runInScope(fn: (ctx: Context) => void): () => void {
     const parentScope = this.currentScope
     const scope: Cleanup[] = []
@@ -56,17 +81,19 @@ export class Context {
     this.currentScope = scope
     try {
       fn(this)
-    } finally {
+    } catch (error) {
       this.currentScope = parentScope
+      this.teardown(scope)
+      this.reportError(error)
+      return () => {}
     }
+    this.currentScope = parentScope
 
     let disposed = false
     return () => {
       if (disposed) return
       disposed = true
-      while (scope.length) {
-        scope.pop()!()
-      }
+      this.teardown(scope)
     }
   }
 
@@ -166,9 +193,6 @@ export class Context {
   }
 
   dispose(): void {
-    while (this.cleanups.length) {
-      const cleanup = this.cleanups.pop()!
-      cleanup()
-    }
+    this.teardown(this.cleanups)
   }
 }
