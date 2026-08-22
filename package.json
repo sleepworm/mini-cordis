@@ -1,11 +1,12 @@
 {
   "name": "mini-cordis",
   "private": true,
-  "version": "0.11.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "demo": "tsx src/index.ts"
+    "demo": "tsx src/index.ts",
+    "demo:hello-cordis": "tsx examples/hello-cordis/index.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
