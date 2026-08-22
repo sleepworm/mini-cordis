@@ -21,17 +21,24 @@ export class Context {
   private listeners = new Map<string, Set<Listener>>()
   private injections = new Set<Injection>()
 
+  constructor(private readonly parent: Context | null = null) {}
+
   provide(name: string, service: unknown): void {
     this.services.set(name, service)
     this.reevaluateAll()
   }
 
+  // 本地没有就问 parent——这就是"Child 可以读取 Parent Service"。
+  // 本地有的话直接用本地的，不会继续往上问，这就是"Child Service 优先于 Parent"。
   get(name: string): unknown {
-    return this.services.get(name)
+    if (this.services.has(name)) {
+      return this.services.get(name)
+    }
+    return this.parent?.get(name)
   }
 
   has(name: string): boolean {
-    return this.services.has(name)
+    return this.services.has(name) || (this.parent?.has(name) ?? false)
   }
 
   remove(name: string): void {
@@ -194,5 +201,27 @@ export class Context {
 
   dispose(): void {
     this.teardown(this.cleanups)
+  }
+
+  // 开一个子 Context：独立的 services/cleanups/listeners/injections，
+  // 但 get()/has() 会往上问 parent（见上面 get/has 的实现）。
+  //
+  // child 自己的 dispose() 只撤销 child 自己的东西，不碰 parent——天然隔离，
+  // 因为两者本来就是完全独立的两个实例。同时把 child.dispose 注册进*这个*
+  // Context 当前的 scope，复用 plugin()/inject() 已经建立的"父 scope 撤销时
+  // 级联撤销子级"机制：parent dispose 时，child 会跟着被处理。
+  fork(): Context {
+    const parentScope = this.currentScope
+    const child = new Context(this)
+
+    let disposed = false
+    const disposeChild = () => {
+      if (disposed) return
+      disposed = true
+      child.dispose()
+    }
+    parentScope.push(disposeChild)
+
+    return child
   }
 }
