@@ -1,3 +1,5 @@
+import type { Plugin } from './plugin'
+
 export class Context {
   private services = new Map<string, unknown>()
 
@@ -15,5 +17,9 @@ export class Context {
 
   remove(name: string): void {
     this.services.delete(name)
+  }
+
+  plugin(fn: Plugin): void {
+    fn(this)
   }
 }
